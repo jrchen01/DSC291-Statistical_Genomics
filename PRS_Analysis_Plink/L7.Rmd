@@ -1,0 +1,79 @@
+---
+title: "DSC291 Lecture 7"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+header-includes: \usepackage{placeins}
+
+---
+# Please supply your own path. This is the path that I use for my local computer. 
+```{r setup}
+library(data.table)
+library(plink2R)
+knitr::opts_knit$set(root.dir = '~/Documents/UCSD/DSC291/')
+#Your directory might be called InClass_Day1 and will be located whereever you downloaded it
+```
+
+```{r, harmonize_1kg_withGWAS}
+
+bmi <- fread("PASS_BMI1.sumstats", header = T)
+t2d <- fread("PASS_Type_2_Diabetes.sumstats", header = T)
+eur_1kg <- fread("1000G_eur_exclude_dups_chr18.bim", header = F)
+
+keep_snps_bmi <- which(bmi$SNP %in% eur_1kg$V2)
+keep_snps_t2d <- which(t2d$SNP %in% eur_1kg$V2)
+
+bmi <- bmi[keep_snps_bmi, ]
+t2d <- t2d[keep_snps_t2d, ]
+
+#Tiffany made fake beta values, because these GWAS summary statistics don't have them. 
+#In real life, you need the real beta values from the GWAS. :) 
+#beta = z*se, and se is a function of sample size. 
+bmi$BETA <- bmi$Z*(1/bmi$N)*1e4
+t2d$BETA <- t2d$Z*(1/t2d$N)*1e4
+
+bmi$SE <- (1/bmi$N)*1e4
+t2d$SE <- (1/t2d$N)*1e4
+
+bmi$P <- pnorm(q = abs(bmi$Z), lower.tail = F)
+t2d$P <- pnorm(q = abs(t2d$Z), lower.tail = F)
+
+#write.table(bmi, file = "PASS_BMI1.chr18.sumstats", row.names = F, col.names = T, sep = "\t", quote = F)
+#write.table(t2d, file = "PASS_Type_2_Diabetes.chr18.sumstats", row.names = F, col.names = T, sep = "\t", quote = F)
+
+bmi <- fread("PASS_BMI1.chr18.sumstats", header = T)
+t2d <- fread("PASS_Type_2_Diabetes.chr18.sumstats", header = T)
+
+```
+
+```{r, prepare_score_file}
+
+for (trait in c("T2D","BMI")){
+  y <- fread(paste0("PRS.SNPs.",trait), header = F)$V1
+  w <- which(nchar(y) > 0) #there are some empty lines that we want to get rid of (weird formatting issues)
+  y <- y[w]
+
+  m <- match(y, bmi$SNP)
+  score <- cbind(bmi$SNP[m], bmi$A1[m], bmi$BETA[m]) #want to make sure BETA corresponds to A2 (not A1)
+  write.table(score, file = paste0(trait, "_score_file.txt"), row.names = F, col.names = F, sep = "\t", quote = F)
+}
+
+```
+
+```{r, analyzePRS}
+
+
+prs_t2d <- fread("PRS_chr18_T2D.profile", header = T)
+prs_bmi <- fread("PRS_chr18_BMI.profile", header = T)
+
+hist(prs_t2d$SCORE)
+hist(prs_bmi$SCORE)
+
+plot(prs_t2d$SCORE, prs_bmi$SCORE, xlab = "T2D", ylab = "BMI", main = "Correlation of PRS for Two Related Phenotypes")
+abline(lm(prs_bmi$SCORE ~ prs_t2d$SCORE))
+cor.test(prs_t2d$SCORE, prs_bmi$SCORE) #cor = 0.53, p-val < 2.2e-16
+cor.test(prs_t2d$SCORE, prs_bmi$SCORE)$p.val #exact p-value 1.59e-37
+```
+
