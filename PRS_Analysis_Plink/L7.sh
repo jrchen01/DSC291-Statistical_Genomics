@@ -7,7 +7,7 @@
 #Step 5: Use --score to calculate the polygenic risk score 
 #Step 6: Compare scores between BMI and T2D. 
 
-#Step 1 (do not redo). In R, harmonize the 1KG dataset and the GWAS summary statistics (select the intersection of SNPs)
+#Step 1: In R, harmonize the 1KG dataset and the GWAS summary statistics (select the intersection of SNPs)
 > library(data.table)
 > bmi <- fread("PASS_BMI1.sumstats", header = T)
 > t2d <- fread("PASS_Type_2_Diabetes.sumstats", header = T)
